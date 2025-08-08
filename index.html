@@ -1,18 +1,206 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kuyumcu Uygulaması</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kuyumcu Uygulaması">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kuyumcu Takip</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>Kuyumcu Uygulaması</h1>
-  <p>Bu, iPhone için PWA olarak eklenebilir bir örnektir.</p>
+<body class="bg-gray-100 min-h-screen">
+  <div id="main" class="p-4 max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Kuyumcu Takip Paneli</h1>
+      <div class="space-x-2">
+        <button onclick="toggleBalanceVisibility()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Bakiyeleri Göster / Gizle</button>
+        <button onclick="showArchive()" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900">Aylık Arşiv</button>
+      </div>
+    </div>
+    <div id="kuyumcu-listesi" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+  </div>
+
+  <div id="detay" class="hidden p-4 max-w-md mx-auto">
+    <h2 id="kuyumcu-baslik" class="text-xl font-bold mb-4"></h2>
+    <div class="space-y-2">
+      <button onclick="ekle('Rodaj', 100)" class="w-full bg-green-600 text-white py-3 text-lg rounded">Rodaj (100 TL)</button>
+      <button onclick="ekle('Kaynak', 200)" class="w-full bg-yellow-600 text-white py-3 text-lg rounded">Kaynak (200 TL)</button>
+      <button onclick="ekle('Tamir', 200)" class="w-full bg-indigo-600 text-white py-3 text-lg rounded">Tamir (200 TL)</button>
+      <button onclick="listele()" class="w-full bg-gray-800 text-white py-3 text-lg rounded">Bakiyeyi Göster</button>
+      <button onclick="sifirla()" class="w-full bg-red-600 text-white py-3 text-lg rounded">Bakiyeyi Sıfırla</button>
+      <button onclick="geri()" class="w-full bg-gray-400 text-white py-3 text-lg rounded">Geri</button>
+    </div>
+  </div>
+
+  <div id="arsiv" class="hidden p-4 max-w-4xl mx-auto">
+    <h2 class="text-2xl font-bold mb-4">Aylık Arşiv</h2>
+    <div id="arsiv-listesi" class="space-y-4"></div>
+    <button onclick="arsivGeri()" class="mt-6 bg-gray-800 text-white px-6 py-3 rounded hover:bg-gray-900">Ana Sayfa</button>
+  </div>
+
+  <script>
+    const kuyumcular = [
+      { name: 'Rıdvan', color: 'bg-blue-500' },
+      { name: 'Or Gold', color: 'bg-green-500' },
+      { name: 'Katre', color: 'bg-purple-500' },
+      { name: 'Ordu', color: 'bg-red-500' },
+      { name: 'Karadeniz', color: 'bg-yellow-500' },
+      { name: 'Çakıcılar', color: 'bg-pink-500' },
+      { name: 'Çakırsoy', color: 'bg-indigo-500' },
+      { name: 'Nadir', color: 'bg-emerald-500' },
+      { name: 'Dükkan Müşteri', color: 'bg-orange-500' }
+    ];
+
+    let secili = '';
+    let goster = false;
+    let bakiyeler = JSON.parse(localStorage.getItem('bakiye') || '{}');
+    let islemler = JSON.parse(localStorage.getItem('guncel') || '{}');
+    let arsiv = JSON.parse(localStorage.getItem('arsiv') || '{}');
+
+    kuyumcular.forEach(k => {
+      bakiyeler[k.name] = bakiyeler[k.name] || 0;
+      islemler[k.name] = islemler[k.name] || [];
+      arsiv[k.name] = arsiv[k.name] || [];
+    });
+
+    const container = document.getElementById('kuyumcu-listesi');
+    kuyumcular.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = `${k.color} text-white font-bold shadow rounded p-6 text-left text-lg hover:opacity-90`;
+      btn.innerHTML = `<div class="text-lg">${k.name}</div><div id="bakiye-${k.name}" class="text-sm">***</div>`;
+      btn.onclick = () => goToDetail(k.name);
+      container.appendChild(btn);
+    });
+
+    function guncelleBakiye(k) {
+      document.getElementById(`bakiye-${k}`).innerText = goster ? `${bakiyeler[k]} TL` : '***';
+    }
+
+    kuyumcular.forEach(k => guncelleBakiye(k.name));
+
+    function toggleBalanceVisibility() {
+      goster = !goster;
+      kuyumcular.forEach(k => guncelleBakiye(k.name));
+    }
+
+    function goToDetail(kuyumcu) {
+      secili = kuyumcu;
+      document.getElementById('main').classList.add('hidden');
+      document.getElementById('detay').classList.remove('hidden');
+      document.getElementById('kuyumcu-baslik').innerText = kuyumcu;
+    }
+
+    function geri() {
+      document.getElementById('detay').classList.add('hidden');
+      document.getElementById('main').classList.remove('hidden');
+    }
+
+    function ekle(tur, tutar) {
+      const zaman = new Date().toLocaleString();
+      const islem = { tur, tutar, zaman };
+      islemler[secili].push(islem);
+      arsiv[secili].push(islem);
+      bakiyeler[secili] += tutar;
+      guncelleBakiye(secili);
+      kaydet();
+      geri();
+    }
+
+    function kaydet() {
+      localStorage.setItem('bakiye', JSON.stringify(bakiyeler));
+      localStorage.setItem('guncel', JSON.stringify(islemler));
+      localStorage.setItem('arsiv', JSON.stringify(arsiv));
+    }
+
+    function listele() {
+      const data = islemler[secili];
+      if (!data.length) return alert('İşlem yok.');
+
+      const popup = document.createElement('div');
+      popup.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+
+      const modal = document.createElement('div');
+      modal.className = 'bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto';
+
+      const title = document.createElement('h2');
+      title.className = 'text-xl font-bold mb-4';
+      title.innerText = `${secili} - İşlem Geçmişi`;
+      modal.appendChild(title);
+
+      let toplam = 0;
+      data.forEach(i => {
+        const p = document.createElement('p');
+        p.innerText = `${i.zaman} | ${i.tur} = ${i.tutar} TL`;
+        modal.appendChild(p);
+        toplam += i.tutar;
+      });
+
+      const totalP = document.createElement('p');
+      totalP.className = 'font-bold mt-4';
+      totalP.innerText = `Toplam: ${toplam} TL`;
+      modal.appendChild(totalP);
+
+      const archiveTotal = arsiv[secili].reduce((sum, i) => sum + i.tutar, 0);
+      const archiveP = document.createElement('p');
+      archiveP.className = 'text-sm text-gray-600 mt-2';
+      archiveP.innerText = `Arşiv Toplamı: ${archiveTotal} TL`;
+      modal.appendChild(archiveP);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full';
+      closeBtn.innerText = 'Kapat';
+      closeBtn.onclick = () => document.body.removeChild(popup);
+      modal.appendChild(closeBtn);
+
+      popup.appendChild(modal);
+      document.body.appendChild(popup);
+    }
+
+    function sifirla() {
+      if (!confirm(`${secili} bakiyesi sıfırlansın mı?`)) return;
+      bakiyeler[secili] = 0;
+      islemler[secili] = [];
+      guncelleBakiye(secili);
+      kaydet();
+    }
+
+    function showArchive() {
+      document.getElementById('main').classList.add('hidden');
+      document.getElementById('arsiv').classList.remove('hidden');
+      const out = document.getElementById('arsiv-listesi');
+      out.innerHTML = '';
+      kuyumcular.forEach(k => {
+        const logs = arsiv[k.name];
+        if (!logs.length) return;
+        let toplam = 0;
+        const wrap = document.createElement('div');
+        wrap.className = 'bg-white shadow p-4 rounded';
+        const head = document.createElement('h3');
+        head.className = 'font-bold mb-2';
+        head.innerText = k.name;
+        wrap.appendChild(head);
+        logs.forEach(l => {
+          const p = document.createElement('p');
+          p.innerText = `${l.zaman} | ${l.tur} = ${l.tutar} TL`;
+          wrap.appendChild(p);
+          toplam += l.tutar;
+        });
+        const sum = document.createElement('p');
+        sum.className = 'font-bold mt-2';
+        sum.innerText = `Toplam: ${toplam} TL`;
+        wrap.appendChild(sum);
+        out.appendChild(wrap);
+      });
+    }
+
+    function arsivGeri() {
+      document.getElementById('arsiv').classList.add('hidden');
+      document.getElementById('main').classList.remove('hidden');
+    }
+  </script>
 </body>
 </html>
