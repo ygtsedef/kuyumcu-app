@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+<script>
+  const allowed = "orkun"; // Şifren bu olacak
+
+  const girilen = prompt("orkun");
+  if (girilen !== allowed) {
+    document.body.innerHTML = "<h1>Erişim Reddedildi</h1>";
+    throw new Error("Erişim reddedildi");
+  }
+</script>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
